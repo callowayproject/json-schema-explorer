@@ -1,0 +1,85 @@
+# Configuration file for `prek`, a git hook framework written in Rust.
+# See https://prek.j178.dev for more information.
+#:schema https://www.schemastore.org/prek.json
+
+ci = { autofix_prs = false }
+default_language_version = { python = "python3.14" }
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.17.5"
+hooks = [
+    { id = "ruff-format" },
+    {
+        id = "ruff-check",
+        args = [
+            "--fix",
+            "--exit-non-zero-on-fix"
+        ],
+#        exclude = "test.*"
+    }
+]
+
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v6.0.0"
+hooks = [
+    { id = "check-added-large-files" },
+    { id = "check-case-conflict" },
+    { id = "check-executables-have-shebangs" },
+    {
+        id = "check-json",
+        exclude = "test.*"
+    },
+    { id = "check-merge-conflict" },
+    { id = "check-shebang-scripts-are-executable" },
+    { id = "check-symlinks" },
+    { id = "check-toml" },
+    {
+        id = "check-yaml",
+        exclude = "test.*|mkdocs.yml",
+        args = ["--allow-multiple-documents"]
+    },
+    { id = "debug-statements" },
+    {
+        id = "end-of-file-fixer",
+        exclude = "^tests/resources/"
+    },
+    { id = "fix-byte-order-marker" }
+]
+
+[[repos]]
+repo = "https://github.com/asottile/pyupgrade"
+rev = "v3.22.0"
+hooks = [
+    {
+        id = "pyupgrade",
+        args = ["--keep-runtime-typing"]
+    }
+]
+
+[[repos]]
+repo = "https://github.com/astral-sh/ty-pre-commit"
+rev = "v0.0.105"
+hooks = [
+    { id = "ty", exclude = { glob = "tests/**" } }
+]
+
+[[repos]]
+repo = "https://github.com/jsh9/pydoclint"
+rev = "0.12.0"
+hooks = [
+    {
+        id = "pydoclint",
+        args = ["--config=pyproject.toml"],
+        exclude = "test.*"
+    }
+]
+
+[[repos]]
+repo = "https://github.com/python-jsonschema/check-jsonschema"
+rev = "0.39.0"
+hooks = [
+    { id = "check-github-actions" },
+    { id = "check-github-workflows" }
+]
