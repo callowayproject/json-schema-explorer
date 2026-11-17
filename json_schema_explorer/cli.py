@@ -1,5 +1,6 @@
 """Command line interface."""
 
+import json
 from pathlib import Path
 
 import click
@@ -26,4 +27,6 @@ def build(schema: str, output: str | None) -> None:
         raise SystemExit(1) from exc
     table = build_node_table(root)
     title = table[ROOT_ID]["title"] or (schema if schema != "-" else "schema")
-    Path(output or default_output_name(schema)).write_text(render_page(table, title), encoding="utf-8")
+    Path(output or default_output_name(schema)).write_text(
+        render_page(table, title, [(schema, json.dumps(root, indent=2))]), encoding="utf-8"
+    )

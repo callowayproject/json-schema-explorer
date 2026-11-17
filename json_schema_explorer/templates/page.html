@@ -30,10 +30,19 @@ header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; borde
 .req { color: var(--bad); font-size: 12px; }
 .dep .label { text-decoration: line-through; }
 </style>
+<style>/* source view */
+{{ source_css | safe }}
+#source { display: none; padding: 0 16px; }
+#source pre { overflow-x: auto; margin: 0; }
+#show-source:checked ~ #source { display: block; }
+#show-source:checked ~ #columns { display: none; }
+</style>
 </head>
 <body>
 <header><span id="header-icon"></span><span>{{ title }}</span></header>
+<input type="checkbox" id="show-source"><label for="show-source" style="padding:6px 16px;display:inline-block;cursor:pointer">Source</label>
 <main id="columns"></main>
+<div id="source">{{ source_html | safe }}</div>
 <script id="node-table" type="application/json">{{ node_table | safe }}</script>
 <script>
 /* Icon paths adapted from Lucide (https://lucide.dev), ISC License.
