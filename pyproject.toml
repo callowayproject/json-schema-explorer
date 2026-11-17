@@ -4,7 +4,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "json_schema_explorer"
+name = "json-schema-explorer"
 description = "Turns a JSON Schema into a static HTML file for browsing."
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -16,7 +16,7 @@ keywords = ["json_schema_explorer"]
 dynamic = ["version"]
 license = { file = "LICENSE" }
 requires-python = ">=3.14"
-dependencies = []
+dependencies = ["click", "jinja2", "referencing", "pygments"]
 authors = [
     { name = "Corey Oordt", email = "coreyoordt@gmail.com" },
 ]
@@ -27,7 +27,6 @@ content-type = "text/markdown"
 
 [project.urls]
 Homepage = "https://github.com/callowayproject/json-schema-explorer"
-Documentation = "https://callowayproject.github.io/json_schema_explorer"
 Repository = "https://github.com/callowayproject/json-schema-explorer"
 Changelog = "https://github.com/callowayproject/json-schema-explorer/CHANGELOG.md"
 
@@ -48,7 +47,7 @@ docs = [
 
 
 [project.scripts]
-json-schema-explorer = json_schema_explorer.cli:cli
+json-schema-explorer = "json_schema_explorer.cli:cli"
 
 [tool.hatch.version]
 path = "json_schema_explorer/__init__.py"

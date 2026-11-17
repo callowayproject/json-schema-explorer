@@ -168,3 +168,6 @@ site-packages
 reports
 *.env
 todo.txt
+
+# Clean-room reference (not committed)
+oc-schema-explorer/

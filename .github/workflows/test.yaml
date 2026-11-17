@@ -3,8 +3,10 @@ name: Test
 on:
   pull_request:
     paths:
-      - 'json_schema_explorer/*'
-      - 'tests/*'
+      - 'json_schema_explorer/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/workflows/test.yaml'
 
 jobs:
   test:
@@ -12,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.14"]
 
     steps:
     - uses: actions/checkout@v7
@@ -29,6 +31,9 @@ jobs:
 
     - name: Install dependencies
       run: uv sync --all-extras --all-groups --dev
+
+    - name: Lint
+      run: uv run ruff check
 
     - name: Run Tests
       run: uv run pytest
