@@ -15,7 +15,7 @@ A Python CLI that turns any JSON Schema into a single self-contained, offline HT
 
 ## Packaging
 
-- uv project, `src/` layout, `uv_build` backend, Python ≥ 3.12.
+- uv project, Python ≥ 3.14.
 - PyPI name and command: `json-schema-explorer` (free on PyPI as of 2026-11-17; `jsonschema-explorer` is taken). Import name: `json_schema_explorer`.
 - Dependencies: `click`, `jinja2`, `referencing`, `pygments`.
 - Only the CLI is a supported interface. An internal `build_html(schema) -> str` exists but is undocumented and unstable.
