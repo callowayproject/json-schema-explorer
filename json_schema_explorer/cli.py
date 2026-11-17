@@ -26,6 +26,9 @@ def build(schema: str, output: str | None) -> None:
         click.echo(f"error: {exc}", err=True)
         raise SystemExit(1) from exc
     table = build_node_table(root)
+    for node in table.values():
+        if node["unresolved"]:
+            click.echo(f"warning: unresolved $ref {node['unresolved']!r} at {node['id']}", err=True)
     title = table[ROOT_ID]["title"] or (schema if schema != "-" else "schema")
     Path(output or default_output_name(schema)).write_text(
         render_page(table, title, [(schema, json.dumps(root, indent=2))]), encoding="utf-8"

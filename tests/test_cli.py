@@ -103,3 +103,12 @@ def test_page_is_self_contained(tmp_path, monkeypatch):
     html = (tmp_path / "s.html").read_text()
     for needle in ('src="', 'href="', "url(", "@import", "fetch(", "XMLHttpRequest"):
         assert needle not in html, needle
+
+
+def test_unresolved_ref_warns_and_exits_zero(tmp_path):
+    """An unresolved $ref warns on stderr but the build succeeds."""
+    src = tmp_path / "s.json"
+    src.write_text('{"items": {"$ref": "#/$defs/nope"}}')
+    result = CliRunner().invoke(cli, ["build", str(src), "-o", str(tmp_path / "o.html")])
+    assert result.exit_code == 0
+    assert "unresolved $ref '#/$defs/nope' at #/items" in result.stderr

@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from json_schema_explorer.resolve import Refs, Retrieve, ref_of
+
 ROOT_ID = "#"
 
 # Keywords shown in place under `constraints`.
@@ -119,18 +121,38 @@ def _children(schema: dict) -> list[tuple[str, str, str, Any]]:
     return out
 
 
-def build_node_table(root: Any) -> dict[str, dict[str, Any]]:
-    """Flatten `root` and all its subschemas into the node table."""
-    table: dict[str, dict[str, Any]] = {}
+def build_node_table(root: Any, retrieve: Retrieve | None = None) -> dict[str, dict[str, Any]]:
+    """Flatten `root` and all its subschemas into the node table.
 
-    def walk(node_id: str, schema: Any) -> None:
+    `$ref` nodes get `ref` set to the target's node ID; unresolvable ones get `unresolved` set to the ref string.
+    `retrieve` is the document-registry callback for other documents (see resolve.Refs).
+    """
+    table: dict[str, dict[str, Any]] = {}
+    ids: dict[int, str] = {}  # id(subschema object) -> node ID, so any lookup result maps back to a node
+    pending: list[tuple[str, str, Any]] = []
+    refs = Refs(root, retrieve)
+
+    def walk(node_id: str, schema: Any, scope: Any) -> None:
         node = table[node_id] = make_node(node_id, schema)
         if not isinstance(schema, dict):
             return
+        ids[id(schema)] = node_id
+        scope = refs.enter(scope, schema) if node_id != ROOT_ID else scope
+        if (ref := ref_of(schema)) is not None:
+            pending.append((node_id, ref, scope))
         for suffix, label, kind, sub in _children(schema):
             target = f"{node_id}/{suffix}"
             node["children"].append({"label": label, "kind": kind, "target": target})
-            walk(target, sub)
+            walk(target, sub, scope)
 
-    walk(ROOT_ID, root)
+    walk(ROOT_ID, root, refs.root)
+    for node_id, ref, scope in pending:
+        found, target = refs.lookup(scope, ref)
+        target_id = None
+        if found and isinstance(target, dict):
+            target_id = ids.get(id(target))
+        elif found and isinstance(target, bool):  # booleans are singletons, so fall back to the pointer
+            guess = "#" + ref.partition("#")[2]
+            target_id = guess if guess in table else None
+        table[node_id]["ref" if target_id else "unresolved"] = target_id or ref
     return table
