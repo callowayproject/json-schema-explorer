@@ -4,6 +4,7 @@ from referencing import Resource
 from referencing.jsonschema import DRAFT202012
 
 from json_schema_explorer.nodes import build_node_table
+from json_schema_explorer.resolve import Documents
 
 
 def test_ref_to_defs_links_not_inlines():
@@ -74,6 +75,7 @@ def test_retrieve_seam_is_used():
         seen.append(uri)
         return Resource.from_contents({"type": "string"}, default_specification=DRAFT202012)
 
-    t = build_node_table({"items": {"$ref": "other.json"}}, retrieve=retrieve)
+    docs = Documents()
+    docs.retrieve = retrieve  # type: ignore[method-assign]
+    build_node_table({"items": {"$ref": "other.json"}}, docs)
     assert seen == ["other.json"]
-    assert t["#/items"]["unresolved"] == "other.json"  # target not in this table until #7

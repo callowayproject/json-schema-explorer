@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from json_schema_explorer.resolve import Refs, Retrieve, ref_of
+from json_schema_explorer.resolve import Documents, Refs, ref_of
 
 ROOT_ID = "#"
 
@@ -121,23 +121,23 @@ def _children(schema: dict) -> list[tuple[str, str, str, Any]]:
     return out
 
 
-def build_node_table(root: Any, retrieve: Retrieve | None = None) -> dict[str, dict[str, Any]]:
-    """Flatten `root` and all its subschemas into the node table.
+def build_node_table(root: Any, documents: Documents | None = None) -> dict[str, dict[str, Any]]:
+    """Flatten `root` and every document its refs load into the node table.
 
     `$ref` nodes get `ref` set to the target's node ID; unresolvable ones get `unresolved` set to the ref string.
-    `retrieve` is the document-registry callback for other documents (see resolve.Refs).
+    Other documents' nodes are named `<document name>#/<pointer>` (see resolve.Documents).
     """
     table: dict[str, dict[str, Any]] = {}
     ids: dict[int, str] = {}  # id(subschema object) -> node ID, so any lookup result maps back to a node
     pending: list[tuple[str, str, Any]] = []
-    refs = Refs(root, retrieve)
+    refs = Refs(root, documents.retrieve if documents else None)
 
-    def walk(node_id: str, schema: Any, scope: Any) -> None:
+    def walk(node_id: str, schema: Any, scope: Any, entered: bool = False) -> None:
         node = table[node_id] = make_node(node_id, schema)
         if not isinstance(schema, dict):
             return
         ids[id(schema)] = node_id
-        scope = refs.enter(scope, schema) if node_id != ROOT_ID else scope
+        scope = scope if entered else refs.enter(scope, schema)
         if (ref := ref_of(schema)) is not None:
             pending.append((node_id, ref, scope))
         for suffix, label, kind, sub in _children(schema):
@@ -145,14 +145,30 @@ def build_node_table(root: Any, retrieve: Retrieve | None = None) -> dict[str, d
             node["children"].append({"label": label, "kind": kind, "target": target})
             walk(target, sub, scope)
 
-    walk(ROOT_ID, root, refs.root)
-    for node_id, ref, scope in pending:
-        found, target = refs.lookup(scope, ref)
-        target_id = None
-        if found and isinstance(target, dict):
-            target_id = ids.get(id(target))
-        elif found and isinstance(target, bool):  # booleans are singletons, so fall back to the pointer
-            guess = "#" + ref.partition("#")[2]
-            target_id = guess if guess in table else None
+    walk(ROOT_ID, root, refs.root, entered=True)
+    looked: list[tuple[str, str, bool, Any]] = []
+    walked: set[str] = set()
+    while True:  # looking refs up loads documents; walk those, which may add refs, until stable
+        while len(looked) < len(pending):
+            node_id, ref, scope = pending[len(looked)]
+            looked.append((node_id, ref, *refs.lookup(scope, ref)))
+        new = [u for u in (documents.names if documents else {}) if u not in walked]
+        if not new:
+            break
+        for uri in new:
+            walked.add(uri)
+            resolved = refs.root.lookup(uri)
+            walk(documents.names[uri] + "#", resolved.contents, resolved.resolver, entered=True)
+    for node_id, ref, found, target in looked:
+        target_id = _target_id(table, ids, ref, found, target)
         table[node_id]["ref" if target_id else "unresolved"] = target_id or ref
     return table
+
+
+def _target_id(table: dict, ids: dict[int, str], ref: str, found: bool, target: Any) -> str | None:
+    if found and isinstance(target, dict):
+        return ids.get(id(target))
+    if found and isinstance(target, bool):  # booleans are singletons, so fall back to the pointer
+        guess = "#" + ref.partition("#")[2]
+        return guess if guess in table else None
+    return None
