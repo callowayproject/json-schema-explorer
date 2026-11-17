@@ -4,6 +4,7 @@ from json_schema_explorer.source import render_source
 
 
 def test_one_highlighted_section_per_document():
+    """Each document gets a headed, highlighted section."""
     css, html = render_source([("root.json", '{"a": 1}'), ("other.json", '{"b": "<x>"}')])
     assert html.index("root.json") < html.index("other.json")
     assert html.count('class="highlight"') == 2
@@ -13,6 +14,7 @@ def test_one_highlighted_section_per_document():
 
 
 def test_build_emits_source_section(tmp_path):
+    """The build command embeds the root document source."""
     from click.testing import CliRunner
 
     from json_schema_explorer.cli import cli
