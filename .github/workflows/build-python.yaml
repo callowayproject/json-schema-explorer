@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
       - name: Package
-        uses: hynek/build-and-inspect-python-package@v2
+        uses: hynek/build-and-inspect-python-package@v3.0.2
 
   call-release-github:
     needs: build-package
@@ -69,4 +69,3 @@ jobs:
 
       - name: Upload package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-  
