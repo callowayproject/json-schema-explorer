@@ -4,7 +4,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "json_schema_explorer"
+name = "json-schema-explorer"
 description = "Turns a JSON Schema into a static HTML file for browsing."
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -16,7 +16,7 @@ keywords = ["json_schema_explorer"]
 dynamic = ["version"]
 license = { file = "LICENSE" }
 requires-python = ">=3.14"
-dependencies = []
+dependencies = ["click", "jinja2", "referencing", "pygments"]
 authors = [
     { name = "Corey Oordt", email = "coreyoordt@gmail.com" },
 ]
@@ -27,7 +27,6 @@ content-type = "text/markdown"
 
 [project.urls]
 Homepage = "https://github.com/callowayproject/json-schema-explorer"
-Documentation = "https://callowayproject.github.io/json_schema_explorer"
 Repository = "https://github.com/callowayproject/json-schema-explorer"
 Changelog = "https://github.com/callowayproject/json-schema-explorer/CHANGELOG.md"
 
@@ -36,6 +35,7 @@ dev = [
     "generate-changelog",
     "bump-my-version",
     "uv",
+    "ruff>=0.17.5",
 ]
 test = [
     "coverage",
@@ -48,7 +48,7 @@ docs = [
 
 
 [project.scripts]
-json-schema-explorer = json_schema_explorer.cli:cli
+json-schema-explorer = "json_schema_explorer.cli:cli"
 
 [tool.hatch.version]
 path = "json_schema_explorer/__init__.py"
@@ -146,6 +146,7 @@ exclude = [
     "dist",
     "node_modules",
     "venv",
+    ".claude/worktrees",
 ]
 
 # Same as Black.
@@ -177,27 +178,27 @@ select = [
     "RUF", # Ruff-specific rules
     "S", # flake8-bandit
     "SIM", # flake8-simplify
-    "TCH", # Flake8 type-checking
+    "TC", # Flake8 type-checking
     "W", # pycodestyle warnings
 ]
 ignore = [
-    "ANN002", # missing-type-args
-    "ANN003", # missing-type-kwargs
-    "ANN204", # missing-return-type-special-method
-    "ANN401", # any-type
-    "D105", # undocumented-magic-method
-    "D106", # undocumented-public-nested-class
-    "D107", # undocumented-public-init
-    "D200", # fits-on-one-line
-    "D212", # multi-line-summary-first-line
-    "PD011", # pandas-use-of-dot-values
-    "PLC0415", # import-outside-toplevel
-    "PLW0108", # unnecessary-lambda
-    "PLW1641", # eq-without-hash
-    "S101", # assert
-    "S104", # hardcoded-bind-all-interfaces
-    "S404", # suspicious-subprocess-import
-    "S602", # subprocess-popen-with-shell-equals-true
+    "missing-type-args", # missing-type-args
+    "missing-type-kwargs", # missing-type-kwargs
+    "missing-return-type-special-method", # missing-return-type-special-method
+    "any-type", # any-type
+    "undocumented-magic-method", # undocumented-magic-method
+    "undocumented-public-nested-class", # undocumented-public-nested-class
+    "undocumented-public-init", # undocumented-public-init
+    "unnecessary-multiline-docstring", # fits-on-one-line
+    "multi-line-summary-first-line", # multi-line-summary-first-line
+    "pandas-use-of-dot-values", # pandas-use-of-dot-values
+    "import-outside-top-level", # import-outside-toplevel
+    "unnecessary-lambda", # unnecessary-lambda
+    "eq-without-hash", # eq-without-hash
+    "assert", # assert
+    "hardcoded-bind-all-interfaces", # hardcoded-bind-all-interfaces
+    "suspicious-subprocess-import", # suspicious-subprocess-import
+    "subprocess-popen-with-shell-equals-true", # subprocess-popen-with-shell-equals-true
 ]
 
 fixable = ["ALL"]
@@ -210,23 +211,23 @@ typing-modules = ["typing", "types", "typing_extensions", "mypy", "mypy_extensio
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
-    "ANN001", # missing-type-function-argument
-    "ANN002", # missing-type-args
-    "ANN003", # missing-type-kwargs
-    "ANN201", # missing-return-type-undocumented-public-function
-    "ANN202", # missing-return-type-private-function
-    "PGH003", # blanket-type-ignore
-    "PLR0912", # too-many-branches
-    "PLR0913", # too-many-arguments
-    "PLR0915", # too-many-statements
-    "PLR2004", # magic-value-comparison
-    "PLW0603", # global-statement
-    "S101", # assert
-    "S105", # hardcoded-password-string
-    "S106", # hardcoded-password-func-arg
-    "TRY003", # raise-vanilla-args
-    "TRY201", # verbose-raise
-    "TRY301", # raise-within-try
+    "missing-type-function-argument", # missing-type-function-argument
+    "missing-type-args", # missing-type-args
+    "missing-type-kwargs", # missing-type-kwargs
+    "missing-return-type-public-function", # missing-return-type-undocumented-public-function
+    "missing-return-type-private-function", # missing-return-type-private-function
+    "blanket-type-ignore", # blanket-type-ignore
+    "too-many-branches", # too-many-branches
+    "too-many-arguments", # too-many-arguments
+    "too-many-statements", # too-many-statements
+    "magic-value-comparison", # magic-value-comparison
+    "global-statement", # global-statement
+    "assert", # assert
+    "hardcoded-password-string", # hardcoded-password-string
+    "hardcoded-password-func-arg", # hardcoded-password-func-arg
+    "raise-vanilla-args", # raise-vanilla-args
+    "verbose-raise", # verbose-raise
+    "raise-within-try", # raise-within-try
 ]
 
 [tool.ruff.lint.mccabe]
