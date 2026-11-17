@@ -5,15 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ title }}</title>
 <style>
-:root { --bg: #fff; --fg: #1a1a1a; --muted: #666; --line: #ddd; }
-@media (prefers-color-scheme: dark) { :root { --bg: #161616; --fg: #e8e8e8; --muted: #999; --line: #333; } }
+:root { --bg: #fff; --panel: #f7f7f8; --fg: #1a1a1a; --muted: #666; --line: #ddd; --sel: #e4ecff; --bad: #b00020; }
+@media (prefers-color-scheme: dark) { :root { --bg: #161616; --panel: #1e1e1f; --fg: #e8e8e8; --muted: #999; --line: #333; --sel: #1f2f55; --bad: #ff6b81; } }
 body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
-header { padding: 12px 16px; border-bottom: 1px solid var(--line); font-weight: 600; }
-#columns { display: flex; }
-.column { min-width: 260px; border-right: 1px solid var(--line); }
-.row { padding: 6px 16px; border-bottom: 1px solid var(--line); }
-.type { color: var(--muted); margin-left: 8px; }
-.req { color: #b00020; margin-left: 8px; font-size: 12px; }
+svg.ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); font-weight: 600; }
+#columns { display: flex; overflow-x: auto; align-items: stretch; min-height: 60vh; }
+.column { flex: none; width: 300px; box-sizing: border-box; border-right: 1px solid var(--line); overflow-wrap: anywhere; }
+.detail { padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.detail h2 { margin: 0 0 4px; font-size: 14px; }
+.desc { white-space: pre-line; margin: 6px 0; }
+.kv { font-size: 12px; margin: 2px 0; }
+.kv b { color: var(--muted); font-weight: 600; margin-right: 4px; }
+.kv code { font-family: ui-monospace, monospace; }
+.tag { font-size: 11px; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; margin-right: 4px; }
+.section { display: flex; align-items: center; gap: 6px; padding: 6px 16px; font-size: 11px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
+.row { display: flex; align-items: center; gap: 6px; padding: 6px 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.row:hover { background: var(--panel); }
+.row.sel { background: var(--sel); }
+.row.bad { color: var(--bad); cursor: default; }
+.row .label { flex: 1; }
+.type { color: var(--muted); font-size: 12px; }
+.row.bad .type { color: var(--bad); }
+.req { color: var(--bad); font-size: 12px; }
+.dep .label { text-decoration: line-through; }
 </style>
 <style>/* source view */
 {{ source_css | safe }}
@@ -24,35 +39,151 @@ header { padding: 12px 16px; border-bottom: 1px solid var(--line); font-weight: 
 </style>
 </head>
 <body>
-<header>{{ title }}</header>
+<header><span id="header-icon"></span><span>{{ title }}</span></header>
 <input type="checkbox" id="show-source"><label for="show-source" style="padding:6px 16px;display:inline-block;cursor:pointer">Source</label>
 <main id="columns"></main>
 <div id="source">{{ source_html | safe }}</div>
 <script id="node-table" type="application/json">{{ node_table | safe }}</script>
 <script>
+/* Icon paths adapted from Lucide (https://lucide.dev), ISC License.
+   Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT);
+   all other copyright (c) for Lucide are held by Lucide Contributors 2022.
+   Permission to use, copy, modify, and/or distribute this software for any purpose with or without
+   fee is hereby granted, provided that the above copyright notice and this permission notice appear
+   in all copies. THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. */
 (function () {
   var table = JSON.parse(document.getElementById("node-table").textContent);
-  var root = table["#"];
-  var col = document.createElement("div");
-  col.className = "column";
-  root.children.forEach(function (c) {
-    var node = table[c.target];
-    var row = document.createElement("div");
-    row.className = "row";
-    row.appendChild(document.createTextNode(c.label));
-    var t = document.createElement("span");
-    t.className = "type";
-    t.textContent = node.type;
-    row.appendChild(t);
-    if (root.required.indexOf(c.label) >= 0) {
-      var r = document.createElement("span");
-      r.className = "req";
-      r.textContent = "required";
-      row.appendChild(r);
+  var ROOT = "#";
+  var ICONS = {
+    file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+    chevron: '<path d="m9 18 6-6-6-6"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+    braces: '<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>',
+    list: '<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
+    type: '<path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>',
+    hash: '<path d="M4 9h16"/><path d="M4 15h16"/><path d="M10 3 8 21"/><path d="m16 3-2 18"/>',
+    toggle: '<rect width="20" height="12" x="2" y="6" rx="6"/><circle cx="16" cy="12" r="2"/>',
+    ban: '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+    circle: '<circle cx="12" cy="12" r="10"/>'
+  };
+  function icon(name) {
+    var s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    s.setAttribute("viewBox", "0 0 24 24");
+    s.setAttribute("class", "ic");
+    s.setAttribute("aria-hidden", "true");
+    s.innerHTML = ICONS[name] || ICONS.circle; // static strings only, never schema text
+    return s;
+  }
+  function typeIcon(t) {
+    t = String(t || "");
+    if (t.indexOf("object") >= 0) return "braces";
+    if (t.indexOf("array") >= 0) return "list";
+    if (t.indexOf("string") >= 0) return "type";
+    if (t.indexOf("number") >= 0 || t.indexOf("integer") >= 0) return "hash";
+    if (t.indexOf("boolean") >= 0) return "toggle";
+    if (t === "never") return "ban";
+    return "circle";
+  }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function show(v) { try { return JSON.stringify(v); } catch (e) { return String(v); } }
+  function kv(parent, k, v) {
+    var d = el("div", "kv");
+    d.appendChild(el("b", null, k));
+    d.appendChild(el("code", null, show(v)));
+    parent.appendChild(d);
+  }
+  function has(t, id) { return Object.prototype.hasOwnProperty.call(t, id); }
+
+  var open = []; // node IDs, one per column
+
+  function parseHash() {
+    var m = /^#c=(.*)$/.exec(location.hash);
+    if (!m) return [ROOT];
+    var ids;
+    try { ids = m[1].split("|").map(decodeURIComponent); } catch (e) { return [ROOT]; }
+    if (!ids.length || ids.some(function (i) { return !has(table, i); })) return [ROOT];
+    return ids;
+  }
+  function writeHash() {
+    var h = "#c=" + open.map(encodeURIComponent).join("|");
+    if (location.hash !== h) history.replaceState(null, "", h);
+  }
+
+  function detail(n) {
+    var d = el("div", "detail");
+    d.appendChild(el("h2", null, n.title || n.type));
+    var tags = el("div", "kv");
+    tags.appendChild(el("span", "tag", n.type));
+    if (n.format) tags.appendChild(el("span", "tag", "format: " + n.format));
+    if (n.deprecated) tags.appendChild(el("span", "tag", "deprecated"));
+    if (n.readOnly) tags.appendChild(el("span", "tag", "readOnly"));
+    d.appendChild(tags);
+    if (n.description) d.appendChild(el("div", "desc", n.description));
+    if (n["enum"]) kv(d, "enum", n["enum"]);
+    if (n["const"] !== null && n["const"] !== undefined) kv(d, "const", n["const"]);
+    if (n["default"] !== null && n["default"] !== undefined) kv(d, "default", n["default"]);
+    if (n.examples) kv(d, "examples", n.examples);
+    var c = n.constraints && typeof n.constraints === "object" ? n.constraints : {};
+    Object.keys(c).forEach(function (k) { kv(d, k, c[k]); });
+    return d;
+  }
+
+  function row(parent, depth, c) {
+    var tgt = has(table, c.target) ? table[c.target] : {};
+    var dest = tgt.ref || c.target;
+    var bad = !!tgt.unresolved || !has(table, dest);
+    var r = el("div", "row" + (bad ? " bad" : "") + (tgt.deprecated ? " dep" : ""));
+    r.appendChild(icon(bad ? "alert" : tgt.ref ? "link" : typeIcon(tgt.type)));
+    r.appendChild(el("span", "label", c.label));
+    var req = Array.isArray(parent.required) ? parent.required : [];
+    if (c.kind === "property" && req.indexOf(c.label) >= 0) r.appendChild(el("span", "req", "required"));
+    var note = bad ? "unresolved: " + (tgt.unresolved || c.target)
+      : tgt.ref ? "→ " + (table[dest].title || dest) : tgt.type || "";
+    r.appendChild(el("span", "type", note));
+    if (!bad) {
+      r.appendChild(icon("chevron"));
+      if (open[depth + 1] === dest) r.classList.add("sel");
+      r.addEventListener("click", function () {
+        open = open.slice(0, depth + 1).concat([dest]);
+        render();
+      });
     }
-    col.appendChild(row);
-  });
-  document.getElementById("columns").appendChild(col);
+    return r;
+  }
+
+  function render() {
+    var host = document.getElementById("columns");
+    host.textContent = "";
+    open.forEach(function (id, depth) {
+      var n = table[id];
+      var col = el("div", "column");
+      col.appendChild(detail(n));
+      var kids = Array.isArray(n.children) ? n.children : [];
+      kids.filter(function (c) { return c.kind !== "def"; }).forEach(function (c) { col.appendChild(row(n, depth, c)); });
+      var defs = kids.filter(function (c) { return c.kind === "def"; });
+      if (depth === 0 && defs.length) {
+        var s = el("div", "section");
+        s.appendChild(icon("folder"));
+        s.appendChild(el("span", null, "Definitions"));
+        col.appendChild(s);
+        defs.forEach(function (c) { col.appendChild(row(n, depth, c)); });
+      }
+      host.appendChild(col);
+    });
+    writeHash();
+  }
+
+  document.getElementById("header-icon").appendChild(icon("file"));
+  open = parseHash();
+  window.addEventListener("hashchange", function () { open = parseHash(); render(); });
+  render();
 })();
 </script>
 </body>

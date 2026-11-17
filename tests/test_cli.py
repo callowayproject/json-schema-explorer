@@ -92,3 +92,14 @@ def test_fatal_errors(tmp_path):
         assert "Traceback" not in r.output
         assert len(r.output.strip().splitlines()) == 1, arg
         assert r.output.startswith("error: ")
+
+
+def test_page_is_self_contained(tmp_path, monkeypatch):
+    """No external requests: nothing but inline script/style, so it works from file://."""
+    monkeypatch.chdir(tmp_path)
+    src = tmp_path / "s.json"
+    src.write_text(json.dumps(SCHEMA))
+    CliRunner().invoke(cli, ["build", str(src)])
+    html = (tmp_path / "s.html").read_text()
+    for needle in ('src="', 'href="', "url(", "@import", "fetch(", "XMLHttpRequest"):
+        assert needle not in html, needle
