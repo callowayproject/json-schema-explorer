@@ -5,8 +5,21 @@ import pytest
 from json_schema_explorer.nodes import build_node_table
 
 KEYS = {
-    "id", "type", "title", "description", "required", "constraints", "enum", "const", "default",
-    "examples", "format", "deprecated", "readOnly", "ref", "unresolved", "children",
+    "id",
+    "type",
+    "title",
+    "description",
+    "required",
+    "constraints",
+    "enum",
+    "default",
+    "examples",
+    "format",
+    "deprecated",
+    "readOnly",
+    "ref",
+    "unresolved",
+    "children",
 }
 
 
@@ -35,18 +48,23 @@ def test_if_then_else_not():
     """Check test_if_then_else_not."""
     t = build_node_table({"if": {}, "then": {"type": "string"}, "else": {"type": "integer"}, "not": {"const": 1}})
     assert kids(t) == [
-        ("if", "if", "#/if"), ("then", "then", "#/then"), ("else", "else", "#/else"), ("not", "not", "#/not"),
+        ("if", "if", "#/if"),
+        ("then", "then", "#/then"),
+        ("else", "else", "#/else"),
+        ("not", "not", "#/not"),
     ]
 
 
 def test_properties_pattern_additional_items():
     """Check test_properties_pattern_additional_items."""
-    t = build_node_table({
-        "properties": {"a/b": {}},
-        "patternProperties": {"^x": {"type": "string"}},
-        "additionalProperties": {"type": "integer"},
-        "items": {"type": "number"},
-    })
+    t = build_node_table(
+        {
+            "properties": {"a/b": {}},
+            "patternProperties": {"^x": {"type": "string"}},
+            "additionalProperties": {"type": "integer"},
+            "items": {"type": "number"},
+        }
+    )
     assert kids(t) == [
         ("property", "a/b", "#/properties/a~1b"),
         ("pattern", "^x", "#/patternProperties/^x"),
@@ -64,7 +82,9 @@ def test_prefix_items_and_draft04_array_items():
     """Check test_prefix_items_and_draft04_array_items."""
     t = build_node_table({"prefixItems": [{}, {}], "items": [{"type": "string"}]})
     assert kids(t) == [
-        ("prefix", "0", "#/prefixItems/0"), ("prefix", "1", "#/prefixItems/1"), ("prefix", "0", "#/items/0"),
+        ("prefix", "0", "#/prefixItems/0"),
+        ("prefix", "1", "#/prefixItems/1"),
+        ("prefix", "0", "#/items/0"),
     ]
     assert t["#"]["type"] == "array"
 
@@ -77,12 +97,14 @@ def test_defs_and_definitions():
 
 def test_generic_keywords_become_children():
     """Check test_generic_keywords_become_children."""
-    t = build_node_table({
-        "contains": {"type": "string"},
-        "propertyNames": {"pattern": "^a"},
-        "dependentSchemas": {"a": {"required": ["b"]}},
-        "unevaluatedProperties": {"type": "string"},
-    })
+    t = build_node_table(
+        {
+            "contains": {"type": "string"},
+            "propertyNames": {"pattern": "^a"},
+            "dependentSchemas": {"a": {"required": ["b"]}},
+            "unevaluatedProperties": {"type": "string"},
+        }
+    )
     assert kids(t) == [
         ("contains", "contains", "#/contains"),
         ("propertyNames", "propertyNames", "#/propertyNames"),
@@ -101,6 +123,7 @@ def test_boolean_schemas():
 
 def test_type_lists_and_inference():
     """Check test_type_lists_and_inference."""
+
     def ty(s):
         return build_node_table(s)["#"]["type"]
 
@@ -114,12 +137,25 @@ def test_type_lists_and_inference():
 
 def test_in_place_facts():
     """Check test_in_place_facts."""
-    n = build_node_table({
-        "type": "object", "required": ["a"], "minProperties": 1, "maxLength": 3,
-        "dependentRequired": {"a": ["b"]}, "enum": [1], "const": 1, "format": "email",
-        "default": 2, "examples": [3], "deprecated": True, "readOnly": True, "title": "T", "description": "D",
-    })["#"]
-    assert set(n) == KEYS
+    n = build_node_table(
+        {
+            "type": "object",
+            "required": ["a"],
+            "minProperties": 1,
+            "maxLength": 3,
+            "dependentRequired": {"a": ["b"]},
+            "enum": [1],
+            "const": 1,
+            "format": "email",
+            "default": 2,
+            "examples": [3],
+            "deprecated": True,
+            "readOnly": True,
+            "title": "T",
+            "description": "D",
+        }
+    )["#"]
+    assert set(n) == KEYS | {"const"}
     assert n["required"] == ["a"]
     assert n["constraints"] == {"minProperties": 1, "maxLength": 3, "dependentRequired": {"a": ["b"]}}
     assert (n["enum"], n["const"], n["format"], n["default"], n["examples"]) == ([1], 1, "email", 2, [3])

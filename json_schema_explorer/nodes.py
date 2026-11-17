@@ -73,13 +73,13 @@ def _constraints(schema: dict) -> dict[str, Any]:
 
 
 def make_node(node_id: str, schema: Any) -> dict[str, Any]:
-    """Return a node with every key of the agreed shape present."""
+    """Return a node with every key of the agreed shape present (`const` only when the schema has one)."""
     label = {True: "any", False: "never"}.get(schema) if isinstance(schema, bool) else None
     if not isinstance(schema, dict):
         schema = {}
     str_or_none = lambda v: v if isinstance(v, str) else None  # ruff: ignore[lambda-assignment]
     required = schema.get("required")
-    return {
+    node = {
         "id": node_id,
         "type": label or _type_label(schema),
         "title": str_or_none(schema.get("title")),
@@ -87,7 +87,6 @@ def make_node(node_id: str, schema: Any) -> dict[str, Any]:
         "required": [r for r in required if isinstance(r, str)] if isinstance(required, list) else [],
         "constraints": _constraints(schema),
         "enum": schema.get("enum") if isinstance(schema.get("enum"), list) else None,
-        "const": schema.get("const"),
         "default": schema.get("default"),
         "examples": schema.get("examples") if isinstance(schema.get("examples"), list) else None,
         "format": str_or_none(schema.get("format")),
@@ -97,6 +96,9 @@ def make_node(node_id: str, schema: Any) -> dict[str, Any]:
         "unresolved": None,
         "children": [],
     }
+    if "const" in schema:  # absent key vs null is distinguished by presence
+        node["const"] = schema["const"]
+    return node
 
 
 def _children(schema: dict) -> list[tuple[str, str, str, Any]]:
@@ -121,7 +123,7 @@ def _children(schema: dict) -> list[tuple[str, str, str, Any]]:
     return out
 
 
-def build_node_table(root: Any, documents: Documents | None = None) -> dict[str, dict[str, Any]]:
+def build_node_table(root: Any, documents: Documents | None = None, base_uri: str = "") -> dict[str, dict[str, Any]]:
     """Flatten `root` and every document its refs load into the node table.
 
     `$ref` nodes get `ref` set to the target's node ID; unresolvable ones get `unresolved` set to the ref string.
@@ -130,7 +132,7 @@ def build_node_table(root: Any, documents: Documents | None = None) -> dict[str,
     table: dict[str, dict[str, Any]] = {}
     ids: dict[int, str] = {}  # id(subschema object) -> node ID, so any lookup result maps back to a node
     pending: list[tuple[str, str, Any]] = []
-    refs = Refs(root, documents.retrieve if documents else None)
+    refs = Refs(root, documents.retrieve if documents else None, base_uri)
 
     def walk(node_id: str, schema: Any, scope: Any, entered: bool = False) -> None:
         node = table[node_id] = make_node(node_id, schema)

@@ -127,7 +127,7 @@ header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; borde
     d.appendChild(tags);
     if (n.description) d.appendChild(el("div", "desc", n.description));
     if (n["enum"]) kv(d, "enum", n["enum"]);
-    if (n["const"] !== null && n["const"] !== undefined) kv(d, "const", n["const"]);
+    if ("const" in n) kv(d, "const", n["const"]);
     if (n["default"] !== null && n["default"] !== undefined) kv(d, "default", n["default"]);
     if (n.examples) kv(d, "examples", n.examples);
     var c = n.constraints && typeof n.constraints === "object" ? n.constraints : {};

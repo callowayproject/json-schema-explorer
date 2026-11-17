@@ -10,20 +10,14 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
-from urllib.request import urlopen
 
 from referencing import Registry, Resource
 from referencing.exceptions import Unresolvable
 from referencing.jsonschema import DRAFT202012, specification_with
 
+from json_schema_explorer.loader import fetch_url
+
 Retrieve = Callable[[str], Resource]
-TIMEOUT = 10
-
-
-def fetch_url(url: str) -> str:
-    """Fetch `url` as text (the network seam; tests replace it)."""
-    with urlopen(url, timeout=TIMEOUT) as resp:  # ruff: ignore[suspicious-url-open-usage]
-        return resp.read().decode("utf-8")
 
 
 class Documents:
@@ -59,7 +53,11 @@ class Documents:
         """`Registry` retrieve callback: any failure surfaces as an unresolved ref."""
         if uri not in self.resources:  # cached: node IDs are matched by object identity
             name, text = self._load(uri)
-            self.resources[uri] = Resource.from_contents(json.loads(text), default_specification=DRAFT202012)
+            try:
+                data = json.loads(text)
+            except ValueError as exc:
+                raise ValueError(f"invalid JSON in {uri}: {exc}") from exc
+            self.resources[uri] = Resource.from_contents(data, default_specification=DRAFT202012)
             self.texts[name] = text
             self.names[uri] = name
         return self.resources[uri]
@@ -80,12 +78,15 @@ def ref_of(schema: dict) -> str | None:
 class Refs:
     """Scoped reference lookup for one root schema (no `$schema` means 2020-12)."""
 
-    def __init__(self, root: Any, retrieve: Retrieve | None = None) -> None:
+    def __init__(self, root: Any, retrieve: Retrieve | None = None, base_uri: str = "") -> None:
         resource = Resource.from_contents(root, default_specification=DRAFT202012)
         dialect = root.get("$schema") if isinstance(root, dict) else None
         self.spec = specification_with(dialect if isinstance(dialect, str) else "", default=DRAFT202012)
         registry = Registry(retrieve=retrieve) if retrieve else Registry()
-        self.root = registry.resolver_with_root(resource)
+        if base_uri:  # URL root: relative refs resolve against it
+            self.root = registry.with_resource(base_uri, resource).resolver(base_uri)
+        else:
+            self.root = registry.resolver_with_root(resource)
 
     def enter(self, scope: Any, schema: Any) -> Any:
         """Return `scope` narrowed to `schema`, following `$id` / `id` base-URI changes."""

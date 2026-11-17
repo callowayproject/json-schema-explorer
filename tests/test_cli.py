@@ -15,7 +15,7 @@ SCHEMA = {
     "properties": {"name": {"type": "string"}, "age": {"type": "integer"}},
 }
 NODE_KEYS = {
-    "id", "type", "title", "description", "required", "constraints", "enum", "const", "default",
+    "id", "type", "title", "description", "required", "constraints", "enum", "default",
     "examples", "format", "deprecated", "readOnly", "ref", "unresolved", "children",
 }  # fmt: skip
 

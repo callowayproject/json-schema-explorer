@@ -24,7 +24,7 @@ json-schema-explorer build SCHEMA [-o FILE] [--allow-remote] [--ref-root DIR]
 
 | Option | Description |
 | --- | --- |
-| `-o`, `--output FILE` | Output file. Defaults to `<schema-stem>.html`; stdin gives `schema.html`; a URL uses its last path segment's stem, falling back to `schema.html`. An existing file is overwritten. |
+| `-o`, `--output FILE` | Output file. Defaults to `<schema-stem>.html`; stdin gives `schema.html`; a URL uses its last path segment's stem, falling back to `schema.html`. The file is written to the current directory unless `-o` gives a path. An existing file is overwritten. |
 | `--allow-remote` | Fetch remote `http(s)` `$ref`s (about 10 s timeout). Off by default, even when the root schema itself came from a URL. Fetching a root URL never needs this flag. |
 | `--ref-root DIR` | Allow local file `$ref`s anywhere under `DIR`. By default they must stay inside the root schema's directory. Local file refs are not followed when the root is a URL or stdin. |
 
