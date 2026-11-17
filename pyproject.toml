@@ -35,6 +35,7 @@ dev = [
     "generate-changelog",
     "bump-my-version",
     "uv",
+    "ruff>=0.17.5",
 ]
 test = [
     "coverage",
