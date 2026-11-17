@@ -171,3 +171,7 @@ todo.txt
 
 # Clean-room reference (not committed)
 oc-schema-explorer/
+
+# Generated output / agent worktrees
+/*.html
+.claude/worktrees/
