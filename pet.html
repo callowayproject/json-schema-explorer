@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pet</title>
+<style>
+:root { --bg: #fff; --fg: #1a1a1a; --muted: #666; --line: #ddd; }
+@media (prefers-color-scheme: dark) { :root { --bg: #161616; --fg: #e8e8e8; --muted: #999; --line: #333; } }
+body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+header { padding: 12px 16px; border-bottom: 1px solid var(--line); font-weight: 600; }
+#columns { display: flex; }
+.column { min-width: 260px; border-right: 1px solid var(--line); }
+.row { padding: 6px 16px; border-bottom: 1px solid var(--line); }
+.type { color: var(--muted); margin-left: 8px; }
+.req { color: #b00020; margin-left: 8px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>Pet</header>
+<main id="columns"></main>
+<script id="node-table" type="application/json">{"#": {"id": "#", "type": "object", "title": "Pet", "description": null, "required": ["name"], "constraints": {}, "enum": null, "const": null, "default": null, "examples": null, "format": null, "deprecated": false, "readOnly": false, "ref": null, "unresolved": null, "children": [{"label": "name", "kind": "property", "target": "#/properties/name"}, {"label": "age", "kind": "property", "target": "#/properties/age"}]}, "#/properties/name": {"id": "#/properties/name", "type": "string", "title": null, "description": null, "required": [], "constraints": {}, "enum": null, "const": null, "default": null, "examples": null, "format": null, "deprecated": false, "readOnly": false, "ref": null, "unresolved": null, "children": []}, "#/properties/age": {"id": "#/properties/age", "type": "integer", "title": null, "description": null, "required": [], "constraints": {}, "enum": null, "const": null, "default": null, "examples": null, "format": null, "deprecated": false, "readOnly": false, "ref": null, "unresolved": null, "children": []}}</script>
+<script>
+(function () {
+  var table = JSON.parse(document.getElementById("node-table").textContent);
+  var root = table["#"];
+  var col = document.createElement("div");
+  col.className = "column";
+  root.children.forEach(function (c) {
+    var node = table[c.target];
+    var row = document.createElement("div");
+    row.className = "row";
+    row.appendChild(document.createTextNode(c.label));
+    var t = document.createElement("span");
+    t.className = "type";
+    t.textContent = node.type;
+    row.appendChild(t);
+    if (root.required.indexOf(c.label) >= 0) {
+      var r = document.createElement("span");
+      r.className = "req";
+      r.textContent = "required";
+      row.appendChild(r);
+    }
+    col.appendChild(row);
+  });
+  document.getElementById("columns").appendChild(col);
+})();
+</script>
+</body>
+</html>
