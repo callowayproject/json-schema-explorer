@@ -4,32 +4,86 @@ from typing import Any
 
 ROOT_ID = "#"
 
+# Keywords shown in place under `constraints`.
+CONSTRAINTS = (
+    "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
+    "minLength", "maxLength", "pattern", "minItems", "maxItems", "uniqueItems",
+    "minProperties", "maxProperties", "minContains", "maxContains", "dependentRequired",
+    "contentEncoding", "contentMediaType",
+)  # fmt: skip
+# Child specs in display order: (keyword, shape, kind, are boolean subschemas navigable?).
+# Generic rule: every keyword below without a dedicated kind is a child named after the keyword.
+CHILD_SPECS = (
+    ("properties", "map", "property", True),
+    ("patternProperties", "map", "pattern", True),
+    ("additionalProperties", "one", "additional", False),
+    ("prefixItems", "list", "prefix", True),
+    ("items", "one", "item", True),
+    ("oneOf", "list", "oneOf", True),
+    ("anyOf", "list", "anyOf", True),
+    ("allOf", "list", "allOf", True),
+    ("if", "one", "if", True),
+    ("then", "one", "then", True),
+    ("else", "one", "else", True),
+    ("not", "one", "not", True),
+    ("contains", "one", "contains", True),
+    ("propertyNames", "one", "propertyNames", True),
+    ("contentSchema", "one", "contentSchema", True),
+    ("additionalItems", "one", "additionalItems", False),
+    ("unevaluatedProperties", "one", "unevaluatedProperties", False),
+    ("unevaluatedItems", "one", "unevaluatedItems", False),
+    ("dependentSchemas", "map", "dependentSchemas", True),
+    ("dependencies", "map", "dependencies", True),
+    ("$defs", "map", "def", True),
+    ("definitions", "map", "def", True),
+)  # fmt: skip
+PLAIN_LABEL_KINDS = ("property", "pattern", "def")
+
+
+def _pointer(token: str) -> str:
+    return token.replace("~", "~0").replace("/", "~1")
+
 
 def _type_label(schema: dict) -> str:
     t = schema.get("type")
     if isinstance(t, str):
         return t
-    if isinstance(t, list) and t:
-        return " | ".join(str(x) for x in t)
-    for key, label in (("properties", "object"), ("items", "array"), ("enum", "enum"), ("const", "const")):
+    if isinstance(t, list):
+        names = [x for x in t if isinstance(x, str)]
+        if names:
+            return " | ".join(names)
+    for key, label in (
+        ("properties", "object"), ("items", "array"), ("prefixItems", "array"), ("enum", "enum"), ("const", "const"),
+    ):  # fmt: skip
         if key in schema:
             return label
     return "any"
 
 
-def make_node(node_id: str, schema: dict | bool) -> dict[str, Any]:
+def _constraints(schema: dict) -> dict[str, Any]:
+    found = {k: schema[k] for k in CONSTRAINTS if k in schema}
+    deps = schema.get("dependencies")
+    if isinstance(deps, dict) and "dependentRequired" not in found:  # draft-07 array form
+        arrays = {k: v for k, v in deps.items() if isinstance(v, list)}
+        if arrays:
+            found["dependentRequired"] = arrays
+    return found
+
+
+def make_node(node_id: str, schema: Any) -> dict[str, Any]:
     """Return a node with every key of the agreed shape present."""
+    label = {True: "any", False: "never"}.get(schema) if isinstance(schema, bool) else None
     if not isinstance(schema, dict):
-        schema = {} if schema else {"not": {}}
+        schema = {}
     str_or_none = lambda v: v if isinstance(v, str) else None  # ruff: ignore[lambda-assignment]
     required = schema.get("required")
     return {
         "id": node_id,
-        "type": "never" if "not" in schema and schema["not"] == {} else _type_label(schema),
+        "type": label or _type_label(schema),
         "title": str_or_none(schema.get("title")),
         "description": str_or_none(schema.get("description")),
         "required": [r for r in required if isinstance(r, str)] if isinstance(required, list) else [],
-        "constraints": {},
+        "constraints": _constraints(schema),
         "enum": schema.get("enum") if isinstance(schema.get("enum"), list) else None,
         "const": schema.get("const"),
         "default": schema.get("default"),
@@ -43,13 +97,40 @@ def make_node(node_id: str, schema: dict | bool) -> dict[str, Any]:
     }
 
 
-def build_node_table(root: dict | bool) -> dict[str, dict[str, Any]]:
-    """Build the table for the root and its flat `properties`."""
-    table = {ROOT_ID: make_node(ROOT_ID, root)}
-    props = root.get("properties") if isinstance(root, dict) else None
-    if isinstance(props, dict):
-        for name, sub in props.items():
-            child_id = f"#/properties/{name.replace('~', '~0').replace('/', '~1')}"
-            table[child_id] = make_node(child_id, sub)
-            table[ROOT_ID]["children"].append({"label": name, "kind": "property", "target": child_id})
+def _children(schema: dict) -> list[tuple[str, str, str, Any]]:
+    """Return (pointer-suffix, label, kind, subschema) for every navigable child."""
+    out: list[tuple[str, str, str, Any]] = []
+    for kw, shape, kind, bools in CHILD_SPECS:
+        value = schema.get(kw)
+
+        def ok(v: Any, bools: bool = bools) -> bool:
+            return isinstance(v, dict) or (bools and isinstance(v, bool))
+
+        if shape == "one" and ok(value):
+            out.append((kw, kw, kind, value))
+        elif shape == "one" and kw == "items" and isinstance(value, list):  # draft-04 array form
+            out.extend((f"items/{i}", str(i), "prefix", s) for i, s in enumerate(value) if ok(s))
+        elif shape == "list" and isinstance(value, list):
+            fmt = "{i}" if kw == "prefixItems" else kw + " {i}"
+            out.extend((f"{kw}/{i}", fmt.format(i=i), kind, s) for i, s in enumerate(value) if ok(s))
+        elif shape == "map" and isinstance(value, dict):
+            fmt = "{k}" if kind in PLAIN_LABEL_KINDS else kw + "/{k}"
+            out.extend((f"{kw}/{_pointer(k)}", fmt.format(k=k), kind, s) for k, s in value.items() if ok(s))
+    return out
+
+
+def build_node_table(root: Any) -> dict[str, dict[str, Any]]:
+    """Flatten `root` and all its subschemas into the node table."""
+    table: dict[str, dict[str, Any]] = {}
+
+    def walk(node_id: str, schema: Any) -> None:
+        node = table[node_id] = make_node(node_id, schema)
+        if not isinstance(schema, dict):
+            return
+        for suffix, label, kind, sub in _children(schema):
+            target = f"{node_id}/{suffix}"
+            node["children"].append({"label": label, "kind": kind, "target": target})
+            walk(target, sub)
+
+    walk(ROOT_ID, root)
     return table
